@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SinicIME - Phonetic Key Resolver</title>
+    <title>Direct Phonetic IME - SinicIME</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -21,7 +21,7 @@
         @media (max-width: 768px) { .main-container { grid-template-columns: 1fr; } }
         .pane { background: var(--panel-bg); display: flex; flex-direction: column; padding: 20px; }
         .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        textarea { flex: 1; width: 100%; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.1rem; line-height: 1.6; resize: none; outline: none; min-height: 180px; }
+        textarea { flex: 1; width: 100%; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.2rem; line-height: 1.6; resize: none; outline: none; min-height: 200px; }
         textarea:focus { border-color: var(--accent); }
         .hints { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
         footer { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px 20px; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
@@ -30,11 +30,11 @@
 <body>
 
     <header>
-        <h1>⚡ Phonetic Key Resolver Studio</h1>
+        <h1>⌨️ Direct Phonetic IME (Gõ trực tiếp)</h1>
         <div>
-            <select id="resolverMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
-                <option value="custom_rules">Quy tắc gõ ký tự (u $\rightarrow$ u ngắn, uu $\rightarrow$ u dài...)</option>
-                <option value="telex_vi">Telex rút gọn (k $\rightarrow$ ko, g $\rightarrow$ giờ...)</option>
+            <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
+                <option value="thai_direct">Tiếng Thái (gõ k $\rightarrow$ ก, kh $\rightarrow$ ข...)</option>
+                <option value="lao_direct">Tiếng Lào (gõ k $\rightarrow$ ກ, kh $\rightarrow$ ຂ...)</option>
             </select>
         </div>
     </header>
@@ -42,22 +42,22 @@
     <div class="main-container">
         <div class="pane">
             <div class="pane-header">
-                <span>Gõ phím (Raw Input)</span>
+                <span>Vùng gõ phím (Input)</span>
                 <span id="charCount">0 ký tự</span>
             </div>
-            <textarea id="inputBox" placeholder="Thử gõ: uu, oo, k, r..."></textarea>
-            <div id="hintBox" class="hints">Quy tắc: uu $\rightarrow$ ū/u dài, oo $\rightarrow$ ō/o dài, k $\rightarrow$ ko...</div>
+            <textarea id="inputBox" placeholder="Gõ trực tiếp phím k, kh, c..."></textarea>
+            <div id="hintBox" class="hints">Gõ trực tiếp: k $\rightarrow$ ก, kh $\rightarrow$ ข, c $\rightarrow$ ค, v.v.</div>
         </div>
         <div class="pane">
             <div class="pane-header">
-                <span>Kết quả phân giải (Resolved Output)</span>
+                <span>Văn bản đích (Direct Output)</span>
             </div>
-            <textarea id="outputBox" placeholder="Kết quả hiện ở đây..." readonly></textarea>
+            <textarea id="outputBox" placeholder="Chữ đích hiện trực tiếp ở đây..." readonly></textarea>
         </div>
     </div>
 
     <footer>
-        <span>Trạng thái: Custom Key Resolver Active</span>
+        <span>Trạng thái: Real-time Direct Resolver Active</span>
         <span>SinicIME Engine</span>
     </footer>
 
@@ -65,45 +65,89 @@
         const input = document.getElementById('inputBox');
         const output = document.getElementById('outputBox');
         const charCount = document.getElementById('charCount');
-        const resolverMode = document.getElementById('resolverMode');
+        const langMode = document.getElementById('langMode');
+        const hintBox = document.getElementById('hintBox');
 
-        // Hàm phân giải quy tắc gõ phím trực tiếp
-        function resolveKeys(text, mode) {
-            if (!text) return "";
+        // Bảng quy tắc gõ trực tiếp (Sắp xếp từ chuỗi dài đến ngắn để tránh bị đè ký tự)
+        const directRules = {
+            'thai_direct': [
+                { from: 'kh', to: 'ข' },
+                { from: 'gh', to: 'ฆ' },
+                { from: 'ng', to: 'ง' },
+                { from: 'ch', to: 'ฉ' },
+                { from: 'ph', to: 'ผ' },
+                { from: 'th', to: 'ถ' },
+                { from: 'sh', to: 'ศ' },
+                { from: 'oh', to: 'โ' },
+                { from: 'k', to: 'ก' },
+                { from: 'c', to: 'ค' },
+                { from: 'j', to: 'จ' },
+                { from: 'd', to: 'ด' },
+                { from: 't', to: 'ต' },
+                { from: 'n', to: 'น' },
+                { from: 'b', to: 'บ' },
+                { from: 'p', to: 'ป' },
+                { from: 'm', to: 'ม' },
+                { from: 'y', to: 'ย' },
+                { from: 'r', to: 'ร' },
+                { from: 'l', to: 'ล' },
+                { from: 'w', to: 'ว' },
+                { from: 's', to: 'ส' },
+                { from: 'h', to: 'ห' },
+                { from: 'a', to: 'ะ' },
+                { from: 'i', to: 'ิ' },
+                { from: 'u', to: 'ุ' }
+            ],
+            'lao_direct': [
+                { from: 'kh', to: 'ຂ' },
+                { from: 'ng', to: 'ງ' },
+                { from: 'ch', to: 'ຊ' },
+                { from: 'ph', to: 'ຜ' },
+                { from: 'th', to: 'ຖ' },
+                { from: 'k', to: 'ກ' },
+                { from: 'c', to: 'ຄ' },
+                { from: 'j', to: 'ຈ' },
+                { from: 'd', to: 'ດ' },
+                { from: 't', to: 'ຕ' },
+                { from: 'n', to: 'ນ' },
+                { from: 'b', to: 'ບ' },
+                { from: 'p', to: 'ປ' },
+                { from: 'm', to: 'ມ' },
+                { from: 'y', to: 'ຍ' },
+                { from: 'r', to: 'ຣ' },
+                { from: 'l', to: 'ລ' },
+                { from: 'w', to: 'ວ' },
+                { from: 's', to: 'ສ' },
+                { from: 'h', to: 'ຫ' },
+                { from: 'a', to: 'ະ' },
+                { from: 'i', to: 'ິ' },
+                { from: 'u', to: 'ຸ' }
+            ]
+        };
 
-            if (mode === 'custom_rules') {
-                return text
-                    // Xử lý nguyên âm kép theo ý bạn (ví dụ: uu thành u dài, oo thành o dài)
-                    .replace(/uu/g, 'ū')
-                    .replace(/oo/g, 'ō')
-                    .replace(/aa/g, 'ā')
-                    .replace(/ee/g, 'ē')
-                    .replace(/ii/g, 'ī')
-                    // Các biến đổi ký tự đơn lẻ hoặc cụm phím
-                    .replace(/\bk\b/g, 'ko')
-                    .replace(/\br\b/g, 'ro');
-            } else if (mode === 'telex_vi') {
-                return text
-                    .replace(/aa/g, 'â')
-                    .replace(/aw/g, 'ă')
-                    .replace(/ee/g, 'ê')
-                    .replace(/oo/g, 'ô')
-                    .replace(/ow/g, 'ơ')
-                    .replace(/dd/g, 'đ');
-            }
-            return text;
+        function parseDirect(text, mode) {
+            let rules = directRules[mode] || [];
+            let result = text;
+            
+            // Thay thế từng luật quy hoạch trực tiếp
+            rules.forEach(rule => {
+                let regex = new RegExp(rule.from, 'g');
+                result = result.replace(regex, rule.to);
+            });
+
+            return result;
         }
 
-        function handleProcess() {
+        function handleDirectProcess() {
             const val = input.value;
-            const mode = resolverMode.value;
+            const mode = langMode.value;
             
             charCount.innerText = `${val.length} ký tự`;
-            output.value = resolveKeys(val, mode);
+            output.value = parseDirect(val, mode);
         }
 
-        input.addEventListener('input', handleProcess);
-        resolverMode.addEventListener('change', handleProcess);
+        input.addEventListener('input', handleDirectProcess);
+        langMode.addEventListener('change', handleDirectProcess);
     </script>
 </body>
 </html>
