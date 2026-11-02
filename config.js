@@ -1,0 +1,4 @@
+export const CONFIG = {
+  url: "libsql://personal-dict-pdk05.aws-ap-southeast-1.turso.io",
+  authToken: "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE3OTM2NDM2NDYsImlkIjoiMDFhMTlkNzgtN2MwMS03YzkyLThmNDQtZDAyMDFkNzFkNTc4Iiwia2lkIjoiMy1pUmtjYU8wTzVpNzVZSkZmc2RmbDRVTzVRS3UxZ3ZBQjF0bnF0SzV2TSIsInJpZCI6ImJkNTIyN2U1LTJmMDQtNGQ3My05YzZhLTRhZThlNjQzOTk3YyJ9._Nl7wlisu3BXNiZTEDlWegcIIBEPqUhtAaZVQ_LCI_WICwZ0ZHCHKmnhY6ENKosDgB3UXyOsrSfCKq1TWgqqDQ"
+};
