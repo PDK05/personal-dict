@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SinicIME - Fixed Single Box</title>
+    <title>SinicIME - Key Cycling Engine</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -19,7 +19,7 @@
         h1 { font-size: 1.1rem; font-weight: 600; color: var(--accent); }
         .container { flex: 1; padding: 20px; display: flex; flex-direction: column; max-width: 800px; margin: 0 auto; width: 100%; }
         .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
-        textarea { flex: 1; width: 100%; background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.3rem; line-height: 1.6; resize: none; outline: none; min-height: 300px; }
+        textarea { flex: 1; width: 100%; background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.4rem; line-height: 1.6; resize: none; outline: none; min-height: 300px; }
         textarea:focus { border-color: var(--accent); }
         .hints { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; }
         footer { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px 20px; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
@@ -28,27 +28,27 @@
 <body>
 
     <header>
-        <h1>⌨️ SinicIME Single-Box Engine</h1>
+        <h1>⌨️ SinicIME Key Cycling Studio</h1>
         <div>
             <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; outline: none;">
-                <option value="thai_syllable">Tiếng Thái (Gõ kzin + Space $\rightarrow$ กิน)</option>
+                <option value="thai_cycling">Tiếng Thái (Gõ k $\rightarrow$ ก, gõ tiếp k $\rightarrow$ ข...)</option>
             </select>
         </div>
     </header>
 
     <div class="container">
         <div class="pane-header">
-            <span>Văn bản trực tiếp</span>
+            <span>Văn bản trực tiếp (Key Cycling Active)</span>
             <span id="charCount">0 ký tự</span>
         </div>
-        <textarea id="editorBox" placeholder="Gõ kzin rồi ấn phím Cách (Space)..."></textarea>
+        <textarea id="editorBox" placeholder="Gõ phím liên tiếp để xem cơ chế lặp biến thể..."></textarea>
         <div class="hints">
-            💡 <strong>Cách test:</strong> Gõ chữ <code>kzin</code> (không có khoảng trắng), sau đó bấm phím <strong>Cách (Space)</strong>. Từ này sẽ tự động chuyển thành <code>กิน</code>.
+            💡 <strong>Quy tắc lặp phím:</strong> Bấm <code>k</code> $\rightarrow$ ra <strong>ก</strong>. Bấm liên tiếp <code>k</code> lần nữa trong khoảng thời gian ngắn $\rightarrow$ chuyển thành <strong>ข</strong>, bấm tiếp ra <strong>ค</strong>, v.v.
         </div>
     </div>
 
     <footer>
-        <span>Trạng thái: Ready</span>
+        <span>Trạng thái: Cycling Mode Ready</span>
         <span>SinicIME Mobile</span>
     </footer>
 
@@ -56,47 +56,58 @@
         const editor = document.getElementById('editorBox');
         const charCount = document.getElementById('charCount');
 
-        // Bảng từ điển ánh xạ tổ hợp phím
-        const syllableDictionary = {
-            'kzin': 'กิน',
-            'nam': 'น้ำ',
-            'pa': 'ป่า',
-            'krungthep': 'กรุงเทพมหานคร'
+        // Bảng chu kỳ lặp phím (Key Cycles)
+        const keyCycles = {
+            'k': ['ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ'],
+            'c': ['จ', 'ฉ', 'ช', 'ซ', 'ฌ'],
+            'd': ['ด', 'ต', 'ถ', 'ท', 'ธ', 'น'],
+            'p': ['ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม'],
+            's': ['ส', 'ศ', 'ษ', 'ซ']
         };
 
-        editor.addEventListener('keyup', function(e) {
-            // Kiểm tra khi người dùng vừa nhả phím Cách (Space)
-            if (e.code === 'Space' || e.key === ' ') {
-                let content = editor.value;
+        let lastKey = null;
+        let cycleIndex = 0;
+        let lastPressTime = 0;
+        const CYCLE_TIMEOUT = 600; // Thời gian tối đa (ms) để tính là bấm lặp phím liên tiếp
+
+        editor.addEventListener('keydown', function(e) {
+            let key = e.key.toLowerCase();
+
+            if (keyCycles[key]) {
+                e.preventDefault(); // Chặn hành vi gõ ký tự Latinh mặc định
+                let currentTime = Date.now();
+                let val = editor.value;
                 let cursorPos = editor.selectionStart;
 
-                // Cắt chuỗi từ đầu đến vị trí con trỏ
-                let textBefore = content.substring(0, cursorPos);
-                let textAfter = content.substring(cursorPos);
+                if (lastKey === key && (currentTime - lastPressTime < CYCLE_TIMEOUT)) {
+                    // Nếu bấm lại phím cũ trong thời gian ngắn -> Chuyển sang biến thể tiếp theo trong chu kỳ
+                    cycleIndex = (cycleIndex + 1) % keyCycles[key].length;
+                    let nextChar = keyCycles[key][cycleIndex];
 
-                // Tách các từ dựa trên khoảng trắng
-                // Loại bỏ khoảng trắng thừa ở cuối cụm vừa gõ để lấy từ gốc (vd: "kzin ")
-                let trimmedBefore = textBefore.trimEnd();
-                let lastSpaceIndex = trimmedBefore.lastIndexOf(' ');
-                
-                let currentWord = lastSpaceIndex === -1 ? trimmedBefore : trimmedBefore.substring(lastSpaceIndex + 1);
+                    // Thay thế ký tự vừa xuất hiện trước đó bằng biến thể mới
+                    let textBefore = val.substring(0, cursorPos - 1);
+                    let textAfter = val.substring(cursorPos);
+                    
+                    editor.value = textBefore + nextChar + textAfter;
+                    editor.setSelectionRange(cursorPos, cursorPos);
+                } else {
+                    // Nếu là phím mới hoặc quá thời gian chờ -> Ra ký tự đầu tiên của chu kỳ
+                    cycleIndex = 0;
+                    let firstChar = keyCycles[key][cycleIndex];
 
-                // Nếu từ vừa gõ khớp với từ điển tổ hợp
-                if (currentWord && syllableDictionary[currentWord]) {
-                    let translatedWord = syllableDictionary[currentWord];
+                    let textBefore = val.substring(0, cursorPos);
+                    let textAfter = val.substring(cursorPos);
                     
-                    // Thay thế từ gốc bằng từ đã dịch
-                    let baseText = lastSpaceIndex === -1 ? '' : trimmedBefore.substring(0, lastSpaceIndex + 1);
-                    let newTextBefore = baseText + translatedWord + ' ';
-                    
-                    editor.value = newTextBefore + textAfter;
-                    
-                    // Đặt lại con trỏ đúng sau khoảng trắng của từ mới thay thế
-                    let newPos = newTextBefore.length;
-                    editor.setSelectionRange(newPos, newPos);
+                    editor.value = textBefore + firstChar + textAfter;
+                    editor.setSelectionRange(cursorPos + 1, cursorPos + 1);
                 }
 
+                lastKey = key;
+                lastPressTime = currentTime;
                 charCount.innerText = `${editor.value.length} ký tự`;
+            } else {
+                // Nếu gõ phím khác thì reset trạng thái chu kỳ lặp
+                lastKey = null;
             }
         });
 
