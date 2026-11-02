@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SinicIME & Dictionary - Offline SPA</title>
+    <title>SinicIME - Phonetic Key Resolver</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -12,24 +12,17 @@
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --accent: #38bdf8;
-            --accent-hover: #0ea5e9;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
-        header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
         h1 { font-size: 1.1rem; font-weight: 600; color: var(--accent); }
-        .lang-select-wrapper { display: flex; align-items: center; gap: 8px; }
-        select { background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem; outline: none; cursor: pointer; }
-        select:focus { border-color: var(--accent); }
         .main-container { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-color); }
         @media (max-width: 768px) { .main-container { grid-template-columns: 1fr; } }
         .pane { background: var(--panel-bg); display: flex; flex-direction: column; padding: 20px; }
-        .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        textarea { flex: 1; width: 100%; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.1rem; line-height: 1.6; resize: none; outline: none; min-height: 150px; }
+        .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
+        textarea { flex: 1; width: 100%; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.1rem; line-height: 1.6; resize: none; outline: none; min-height: 180px; }
         textarea:focus { border-color: var(--accent); }
-        .dict-results { margin-top: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; font-size: 0.95rem; }
-        .dict-item { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .dict-item:last-child { border-bottom: none; }
         .hints { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
         footer { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px 20px; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
     </style>
@@ -37,14 +30,11 @@
 <body>
 
     <header>
-        <h1>📖 SinicIME & Dictionary Engine</h1>
-        <div class="lang-select-wrapper">
-            <label for="langSelect" style="font-size: 0.85rem; color: var(--text-muted);">Bộ từ điển / IME:</label>
-            <select id="langSelect">
-                <option value="tay">Tày - Việt Dictionary</option>
-                <option value="tay_dam">Tãy Đăm - Việt Dictionary</option>
-                <option value="mandarin">Quan thoại (Pinyin $\rightarrow$ Hán)</option>
-                <option value="thai">Tiếng Thái (RTGS)</option>
+        <h1>⚡ Phonetic Key Resolver Studio</h1>
+        <div>
+            <select id="resolverMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
+                <option value="custom_rules">Quy tắc gõ ký tự (u $\rightarrow$ u ngắn, uu $\rightarrow$ u dài...)</option>
+                <option value="telex_vi">Telex rút gọn (k $\rightarrow$ ko, g $\rightarrow$ giờ...)</option>
             </select>
         </div>
     </header>
@@ -52,101 +42,68 @@
     <div class="main-container">
         <div class="pane">
             <div class="pane-header">
-                <span>Nhập từ khóa tra cứu / Phiên âm</span>
+                <span>Gõ phím (Raw Input)</span>
                 <span id="charCount">0 ký tự</span>
             </div>
-            <textarea id="inputBox" placeholder="Nhập từ cần tra (vd: na, kin, ni3 hao3, krungthep)..."></textarea>
-            <div id="hintBox" class="hints">Gợi ý: Nhập từ để tra cứu trực tiếp trong cơ sở dữ liệu tích hợp.</div>
+            <textarea id="inputBox" placeholder="Thử gõ: uu, oo, k, r..."></textarea>
+            <div id="hintBox" class="hints">Quy tắc: uu $\rightarrow$ ū/u dài, oo $\rightarrow$ ō/o dài, k $\rightarrow$ ko...</div>
         </div>
         <div class="pane">
             <div class="pane-header">
-                <span>Kết quả chuyển đổi & Tra cứu</span>
+                <span>Kết quả phân giải (Resolved Output)</span>
             </div>
-            <textarea id="outputBox" placeholder="Kết quả IME hiện ở đây..." readonly style="min-height: 80px;"></textarea>
-            <div class="pane-header" style="margin-top: 15px;"><span>Mục từ tra cứu trong từ điển:</span></div>
-            <div id="dictResults" class="dict-results">
-                <span style="color: var(--text-muted);">Chưa có kết quả tra cứu.</span>
-            </div>
+            <textarea id="outputBox" placeholder="Kết quả hiện ở đây..." readonly></textarea>
         </div>
     </div>
 
     <footer>
-        <span id="statusInfo">Trạng thái: Offline Dictionary Ready</span>
-        <span>Linguaevum Embedded DB</span>
+        <span>Trạng thái: Custom Key Resolver Active</span>
+        <span>SinicIME Engine</span>
     </footer>
 
     <script>
-        // Cơ sở dữ liệu từ điển nhúng mẫu (Có thể mở rộng thêm)
-        const embeddedDatabases = {
-            'tay': [
-                { key: 'na', target: 'นา', meaning: 'Ruộng' },
-                { key: 'kin', target: 'กิน', meaning: 'Ăn' },
-                { key: 'Mừ', target: 'มือ', meaning: 'Tay' },
-                { key: 'Pỉ', target: 'พี่', meaning: 'Anh/Chị' },
-                { key: 'khẩu', target: 'ข้าว', meaning: 'Cơm / Gạo' }
-            ],
-            'tay_dam': [
-                { key: 'pa', target: 'ป่า', meaning: 'Rừng / Cá (tùy ngữ cảnh)' },
-                { key: 'nam', target: 'น้ำ', meaning: 'Nước' },
-                { key: 'Mệu', target: 'เมือง', meaning: 'Mường / Xứ sở' }
-            ],
-            'mandarin': [
-                { key: 'ni3 hao3', target: '你好', meaning: 'Xin chào (Hello)' },
-                { key: 'zhong1guo2', target: '中國', meaning: 'Trung Quốc' },
-                { key: 'xiexie', target: '謝謝', meaning: 'Cảm ơn' }
-            ],
-            'thai': [
-                { key: 'krungthep', target: 'กรุงเทพมหานคร', meaning: 'Thành phố Bangkok' },
-                { key: 'sawasdee', target: 'สวัสดี', meaning: 'Xin chào / Chào tạm biệt' }
-            ]
-        };
-
         const input = document.getElementById('inputBox');
         const output = document.getElementById('outputBox');
-        const langSelect = document.getElementById('langSelect');
         const charCount = document.getElementById('charCount');
-        const hintBox = document.getElementById('hintBox');
-        const dictResults = document.getElementById('dictResults');
+        const resolverMode = document.getElementById('resolverMode');
 
-        function processIME() {
-            const query = input.value.trim().toLowerCase();
-            const currentLang = langSelect.value;
-            
-            charCount.innerText = `${input.value.length} ký tự`;
+        // Hàm phân giải quy tắc gõ phím trực tiếp
+        function resolveKeys(text, mode) {
+            if (!text) return "";
 
-            if (!query) {
-                output.value = '';
-                dictResults.innerHTML = '<span style="color: var(--text-muted);">Chưa có kết quả tra cứu.</span>';
-                return;
+            if (mode === 'custom_rules') {
+                return text
+                    // Xử lý nguyên âm kép theo ý bạn (ví dụ: uu thành u dài, oo thành o dài)
+                    .replace(/uu/g, 'ū')
+                    .replace(/oo/g, 'ō')
+                    .replace(/aa/g, 'ā')
+                    .replace(/ee/g, 'ē')
+                    .replace(/ii/g, 'ī')
+                    // Các biến đổi ký tự đơn lẻ hoặc cụm phím
+                    .replace(/\bk\b/g, 'ko')
+                    .replace(/\br\b/g, 'ro');
+            } else if (mode === 'telex_vi') {
+                return text
+                    .replace(/aa/g, 'â')
+                    .replace(/aw/g, 'ă')
+                    .replace(/ee/g, 'ê')
+                    .replace(/oo/g, 'ô')
+                    .replace(/ow/g, 'ơ')
+                    .replace(/dd/g, 'đ');
             }
-
-            // Xử lý chuyển đổi IME thô cơ bản
-            let converted = query;
-            if (currentLang === 'mandarin') {
-                converted = query.replace('ni3 hao3', '你好').replace('zhong1guo2', '中國');
-            } else if (currentLang === 'thai') {
-                converted = query.replace('krungthep', 'กรุงเทพมหานคร').replace('sawasdee', 'สวัสดี');
-            }
-            output.value = converted;
-
-            // Tra cứu từ điển nhúng
-            const db = embeddedDatabases[currentLang] || [];
-            const matches = db.filter(item => item.key.toLowerCase().includes(query) || item.meaning.toLowerCase().includes(query));
-
-            if (matches.length > 0) {
-                dictResults.innerHTML = matches.map(m => `
-                    <div class="dict-item">
-                        <strong>🔑 ${m.key}</strong> $\rightarrow$ <span style="color: var(--accent);">${m.target}</span> 
-                        <br><small style="color: var(--text-muted);">Nghĩa: ${m.meaning}</small>
-                    </div>
-                `).join('');
-            } else {
-                dictResults.innerHTML = `<span style="color: var(--text-muted);">Không tìm thấy mục từ khớp với "${query}" trong cơ sở dữ liệu offline.</span>`;
-            }
+            return text;
         }
 
-        input.addEventListener('input', processIME);
-        langSelect.addEventListener('change', processIME);
+        function handleProcess() {
+            const val = input.value;
+            const mode = resolverMode.value;
+            
+            charCount.innerText = `${val.length} ký tự`;
+            output.value = resolveKeys(val, mode);
+        }
+
+        input.addEventListener('input', handleProcess);
+        resolverMode.addEventListener('change', handleProcess);
     </script>
 </body>
 </html>
