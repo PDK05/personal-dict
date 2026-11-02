@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Direct Phonetic IME - SinicIME</title>
+    <title>Syllable IME - SinicIME</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -30,11 +30,10 @@
 <body>
 
     <header>
-        <h1>⌨️ Direct Phonetic IME (Gõ trực tiếp)</h1>
+        <h1>⌨️ Syllable-based IME (Gõ tổ hợp + Phím Cách)</h1>
         <div>
             <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
-                <option value="thai_direct">Tiếng Thái (gõ k $\rightarrow$ ก, kh $\rightarrow$ ข...)</option>
-                <option value="lao_direct">Tiếng Lào (gõ k $\rightarrow$ ກ, kh $\rightarrow$ ຂ...)</option>
+                <option value="thai_syllable">Tiếng Thái (Gõ kzin + Space $\rightarrow$ กิน)</option>
             </select>
         </div>
     </header>
@@ -42,22 +41,22 @@
     <div class="main-container">
         <div class="pane">
             <div class="pane-header">
-                <span>Vùng gõ phím (Input)</span>
+                <span>Vùng gõ tổ hợp (Buffer Input)</span>
                 <span id="charCount">0 ký tự</span>
             </div>
-            <textarea id="inputBox" placeholder="Gõ trực tiếp phím k, kh, c..."></textarea>
-            <div id="hintBox" class="hints">Gõ trực tiếp: k $\rightarrow$ ก, kh $\rightarrow$ ข, c $\rightarrow$ ค, v.v.</div>
+            <textarea id="inputBox" placeholder="Gõ kzin rồi ấn phím Cách (Space)..."></textarea>
+            <div id="hintBox" class="hints">Quy tắc: Gõ kzin -> Ấn phím Space để hệ thống phân giải thành กิน</div>
         </div>
         <div class="pane">
             <div class="pane-header">
-                <span>Văn bản đích (Direct Output)</span>
+                <span>Văn bản hoàn chỉnh (Output)</span>
             </div>
-            <textarea id="outputBox" placeholder="Chữ đích hiện trực tiếp ở đây..." readonly></textarea>
+            <textarea id="outputBox" placeholder="Chữ đích sau khi phân giải sẽ hiện ở đây..." readonly></textarea>
         </div>
     </div>
 
     <footer>
-        <span>Trạng thái: Real-time Direct Resolver Active</span>
+        <span>Trạng thái: Space-triggered Resolver Active</span>
         <span>SinicIME Engine</span>
     </footer>
 
@@ -65,89 +64,45 @@
         const input = document.getElementById('inputBox');
         const output = document.getElementById('outputBox');
         const charCount = document.getElementById('charCount');
-        const langMode = document.getElementById('langMode');
-        const hintBox = document.getElementById('hintBox');
 
-        // Bảng quy tắc gõ trực tiếp (Sắp xếp từ chuỗi dài đến ngắn để tránh bị đè ký tự)
-        const directRules = {
-            'thai_direct': [
-                { from: 'kh', to: 'ข' },
-                { from: 'gh', to: 'ฆ' },
-                { from: 'ng', to: 'ง' },
-                { from: 'ch', to: 'ฉ' },
-                { from: 'ph', to: 'ผ' },
-                { from: 'th', to: 'ถ' },
-                { from: 'sh', to: 'ศ' },
-                { from: 'oh', to: 'โ' },
-                { from: 'k', to: 'ก' },
-                { from: 'c', to: 'ค' },
-                { from: 'j', to: 'จ' },
-                { from: 'd', to: 'ด' },
-                { from: 't', to: 'ต' },
-                { from: 'n', to: 'น' },
-                { from: 'b', to: 'บ' },
-                { from: 'p', to: 'ป' },
-                { from: 'm', to: 'ม' },
-                { from: 'y', to: 'ย' },
-                { from: 'r', to: 'ร' },
-                { from: 'l', to: 'ล' },
-                { from: 'w', to: 'ว' },
-                { from: 's', to: 'ส' },
-                { from: 'h', to: 'ห' },
-                { from: 'a', to: 'ะ' },
-                { from: 'i', to: 'ิ' },
-                { from: 'u', to: 'ุ' }
-            ],
-            'lao_direct': [
-                { from: 'kh', to: 'ຂ' },
-                { from: 'ng', to: 'ງ' },
-                { from: 'ch', to: 'ຊ' },
-                { from: 'ph', to: 'ຜ' },
-                { from: 'th', to: 'ຖ' },
-                { from: 'k', to: 'ກ' },
-                { from: 'c', to: 'ຄ' },
-                { from: 'j', to: 'ຈ' },
-                { from: 'd', to: 'ດ' },
-                { from: 't', to: 'ຕ' },
-                { from: 'n', to: 'ນ' },
-                { from: 'b', to: 'ບ' },
-                { from: 'p', to: 'ປ' },
-                { from: 'm', to: 'ມ' },
-                { from: 'y', to: 'ຍ' },
-                { from: 'r', to: 'ຣ' },
-                { from: 'l', to: 'ລ' },
-                { from: 'w', to: 'ວ' },
-                { from: 's', to: 'ສ' },
-                { from: 'h', to: 'ຫ' },
-                { from: 'a', to: 'ະ' },
-                { from: 'i', to: 'ິ' },
-                { from: 'u', to: 'ຸ' }
-            ]
+        // Từ điển ánh xạ tổ hợp phím (Syllable Mapping)
+        const syllableDictionary = {
+            'kzin': 'กิน',
+            'nam': 'น้ำ',
+            'pa': 'ป่า',
+            'krungthep': 'กรุงเทพมหานคร'
         };
 
-        function parseDirect(text, mode) {
-            let rules = directRules[mode] || [];
-            let result = text;
-            
-            // Thay thế từng luật quy hoạch trực tiếp
-            rules.forEach(rule => {
-                let regex = new RegExp(rule.from, 'g');
-                result = result.replace(regex, rule.to);
-            });
+        // Lắng nghe sự kiện nhấn phím để bắt phím Cách (Space)
+        input.addEventListener('keydown', function(e) {
+            if (e.key === ' ') {
+                e.preventDefault(); // Chặn khoảng trắng mặc định để xử lý phân giải cụm từ hiện tại
+                
+                let text = input.value;
+                // Lấy từ/cụm chữ cuối cùng đang gõ (tính từ khoảng trắng trước đó hoặc đầu dòng)
+                let words = text.split(/\s+/);
+                let currentWord = words[words.length - 1];
 
-            return result;
-        }
+                if (currentWord && syllableDictionary[currentWord]) {
+                    // Thay thế tổ hợp phím bằng chữ đích từ từ điển
+                    words[words.length - 1] = syllableDictionary[currentWord];
+                    input.value = words.join(' ') + ' ';
+                } else {
+                    // Nếu không khớp từ điển, giữ nguyên và thêm khoảng trắng
+                    input.value += ' ';
+                }
+                
+                // Cập nhật khung kết quả bên phải
+                output.value = input.value;
+                charCount.innerText = `${input.value.length} ký tự`;
+            }
+        });
 
-        function handleDirectProcess() {
-            const val = input.value;
-            const mode = langMode.value;
-            
-            charCount.innerText = `${val.length} ký tự`;
-            output.value = parseDirect(val, mode);
-        }
-
-        input.addEventListener('input', handleDirectProcess);
-        langMode.addEventListener('change', handleDirectProcess);
+        input.addEventListener('input', function() {
+            charCount.innerText = `${input.value.length} ký tự`;
+            // Đồng thời hiển thị nội dung thô nếu chưa ấn space
+            output.value = input.value;
+        });
     </script>
 </body>
 </html>
