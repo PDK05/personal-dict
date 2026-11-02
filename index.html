@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SinicIME Mobile Studio</title>
+    <title>SinicIME - Mobile Real-time Resolver</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -15,107 +15,90 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background-color: var(--bg-color); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; }
+        header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; }
         h1 { font-size: 1rem; font-weight: 600; color: var(--accent); }
-        .container { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-        textarea { flex: 1; width: 100%; background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; font-size: 1.3rem; line-height: 1.5; resize: none; outline: none; }
+        .container { flex: 1; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .pane-header { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; display: flex; justify-content: space-between; }
+        textarea { flex: 1; width: 100%; background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.4rem; line-height: 1.6; resize: none; outline: none; }
         textarea:focus { border-color: var(--accent); }
-        
-        /* Bàn phím ảo mini chuyên dụng cho mobile */
-        .virtual-keypad { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-        .v-key { background: #334155; color: var(--text-main); border: none; border-radius: 6px; padding: 14px 0; font-size: 1.1rem; font-weight: 600; text-align: center; cursor: pointer; active { background: var(--accent); color: #000; } }
-        .v-key:active { background: var(--accent); color: #0f172a; }
-        
-        .hints { font-size: 0.75rem; color: var(--text-muted); text-align: center; padding-bottom: 5px; }
+        .hints { font-size: 0.8rem; color: var(--text-muted); background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; }
+        footer { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px 15px; font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>⌨️ SinicIME Mobile</h1>
+        <h1>⌨️ SinicIME Mobile Engine</h1>
         <span id="charCount" style="font-size: 0.8rem; color: var(--text-muted);">0 ký tự</span>
     </header>
 
     <div class="container">
-        <textarea id="editorBox" placeholder="Chạm vào phím bên dưới để gõ hoặc gõ trực tiếp..."></textarea>
+        <div class="pane-header">
+            <span>Khung gõ văn bản trực tiếp</span>
+        </div>
+        <textarea id="editorBox" placeholder="Gõ k, c, d... bàn phím sẽ tự chuyển đổi..."></textarea>
+        <div class="hints">
+            💡 <strong>Mẹo di động:</strong> Hệ thống sẽ tự động quét ký tự Latinh vừa gõ và đổi sang ký tự đích tương ứng ngay khi bạn nhập!
+        </div>
     </div>
 
-    <div class="hints">💡 Chạm liên tiếp vào phím (vd: K) để xoay vòng biến thể ก $\rightarrow$ ข $\rightarrow$ ค</div>
-
-    <!-- Thanh bàn phím ảo chuyên dụng chạm trực tiếp trên điện thoại -->
-    <div class="virtual-keypad">
-        <button class="v-key" onclick="handleVirtualKey('k')">K</button>
-        <button class="v-key" onclick="handleVirtualKey('c')">C</button>
-        <button class="v-key" onclick="handleVirtualKey('d')">D</button>
-        <button class="v-key" onclick="handleVirtualKey('p')">P</button>
-        <button class="v-key" onclick="handleVirtualKey('s')">S</button>
-        <button class="v-key" onclick="handleVirtualKey('space')">Space</button>
-        <button class="v-key" onclick="handleVirtualKey('backspace')" style="grid-column: span 4; background: #475569;">⌫ Xóa</button>
-    </div>
+    <footer>
+        <span>Trạng thái: Mobile Input Active</span>
+        <span>SinicIME SPA</span>
+    </footer>
 
     <script>
         const editor = document.getElementById('editorBox');
         const charCount = document.getElementById('charCount');
 
-        const keyCycles = {
-            'k': ['ก', 'ข', 'ฃ', 'ค', 'ฅ', 'ฆ'],
-            'c': ['จ', 'ฉ', 'ช', 'ซ', 'ฌ'],
-            'd': ['ด', 'ต', 'ถ', 'ท', 'ธ', 'น'],
-            'p': ['ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม'],
-            's': ['ส', 'ศ', 'ษ', 'ซ']
+        // Bảng quy tắc chuyển đổi trực tiếp trên mobile
+        const mobileMapping = {
+            'kh': 'ข',
+            'ng': 'ง',
+            'ch': 'ฉ',
+            'ph': 'ผ',
+            'th': 'ถ',
+            'k': 'ก',
+            'c': 'ค',
+            'j': 'จ',
+            'd': 'ด',
+            't': 'ต',
+            'n': 'น',
+            'b': 'บ',
+            'p': 'ป',
+            'm': 'ม',
+            'y': 'ย',
+            'r': 'ร',
+            'l': 'ล',
+            'w': 'ว',
+            's': 'ส',
+            'h': 'ห',
+            'a': 'ะ',
+            'i': 'ิ',
+            'u': 'ุ'
         };
 
-        let lastKey = null;
-        let cycleIndex = 0;
-        let lastPressTime = 0;
-        const CYCLE_TIMEOUT = 800; // 800ms để bấm lặp trên mobile
-
-        function handleVirtualKey(key) {
-            let currentTime = Date.now();
+        editor.addEventListener('input', function(e) {
             let val = editor.value;
-            let cursorPos = editor.selectionStart;
+            
+            // Tự động quét và thay thế các tổ hợp phím Latinh thành ký tự đích ngay lập tức
+            // Sắp xếp các key theo chiều dài giảm dần để ưu tiên cụm dài trước (vd: kh trước k)
+            let sortedKeys = Object.keys(mobileMapping).sort((a, b) => b.length - a.length);
+            
+            let cursor = editor.selectionStart;
+            
+            // Duyệt và thay thế các mẫu trong chuỗi
+            sortedKeys.forEach(key => {
+                let regex = new RegExp(key, 'g');
+                val = val.replace(regex, mobileMapping[key]);
+            });
 
-            if (key === 'space') {
-                editor.value = val.substring(0, cursorPos) + ' ' + val.substring(cursorPos);
-                editor.setSelectionRange(cursorPos + 1, cursorPos + 1);
-                lastKey = null;
-            } else if (key === 'backspace') {
-                if (cursorPos > 0) {
-                    editor.value = val.substring(0, cursorPos - 1) + val.substring(cursorPos);
-                    editor.setSelectionRange(cursorPos - 1, cursorPos - 1);
-                }
-                lastKey = null;
-            } else if (keyCycles[key]) {
-                if (lastKey === key && (currentTime - lastPressTime < CYCLE_TIMEOUT)) {
-                    // Xoay vòng biến thể khi bấm liên tiếp
-                    cycleIndex = (cycleIndex + 1) % keyCycles[key].length;
-                    let nextChar = keyCycles[key][cycleIndex];
-
-                    let textBefore = val.substring(0, cursorPos - 1);
-                    let textAfter = val.substring(cursorPos);
-                    
-                    editor.value = textBefore + nextChar + textAfter;
-                    editor.setSelectionRange(cursorPos, cursorPos);
-                } else {
-                    // Ra ký tự đầu tiên
-                    cycleIndex = 0;
-                    let firstChar = keyCycles[key][cycleIndex];
-
-                    let textBefore = val.substring(0, cursorPos);
-                    let textAfter = val.substring(cursorPos);
-                    
-                    editor.value = textBefore + firstChar + textAfter;
-                    editor.setSelectionRange(cursorPos + 1, cursorPos + 1);
-                }
-                lastKey = key;
-                lastPressTime = currentTime;
+            if (editor.value !== val) {
+                editor.value = val;
+                // Giữ vị trí con trỏ hợp lý
+                editor.setSelectionRange(cursor, cursor);
             }
 
-            editor.focus();
-            charCount.innerText = `${editor.value.length} ký tự`;
-        }
-
-        editor.addEventListener('input', function() {
             charCount.innerText = `${editor.value.length} ký tự`;
         });
     </script>
