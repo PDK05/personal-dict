@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SinicIME - Single Box Engine</title>
+    <title>SinicIME - Fixed Single Box</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -28,7 +28,7 @@
 <body>
 
     <header>
-        <h1>⌨️ SinicIME Single-Box Studio</h1>
+        <h1>⌨️ SinicIME Single-Box Engine</h1>
         <div>
             <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; outline: none;">
                 <option value="thai_syllable">Tiếng Thái (Gõ kzin + Space $\rightarrow$ กิน)</option>
@@ -38,17 +38,17 @@
 
     <div class="container">
         <div class="pane-header">
-            <span>Văn bản trực tiếp (Single Input/Output Box)</span>
+            <span>Văn bản trực tiếp</span>
             <span id="charCount">0 ký tự</span>
         </div>
-        <textarea id="editorBox" placeholder="Gõ kzin rồi ấn phím Cách (Space) để phân giải ngay tại đây..."></textarea>
+        <textarea id="editorBox" placeholder="Gõ kzin rồi ấn phím Cách (Space)..."></textarea>
         <div class="hints">
-            💡 <strong>Quy tắc:</strong> Gõ tổ hợp phím (vd: <code>kzin</code>) rồi bấm phím <code>Space</code> để hệ thống tự động thay thế thành chữ đích ngay trong khung.
+            💡 <strong>Cách test:</strong> Gõ chữ <code>kzin</code> (không có khoảng trắng), sau đó bấm phím <strong>Cách (Space)</strong>. Từ này sẽ tự động chuyển thành <code>กิน</code>.
         </div>
     </div>
 
     <footer>
-        <span>Trạng thái: Active</span>
+        <span>Trạng thái: Ready</span>
         <span>SinicIME Mobile</span>
     </footer>
 
@@ -56,7 +56,7 @@
         const editor = document.getElementById('editorBox');
         const charCount = document.getElementById('charCount');
 
-        // Bảng ánh xạ tổ hợp phím
+        // Bảng từ điển ánh xạ tổ hợp phím
         const syllableDictionary = {
             'kzin': 'กิน',
             'nam': 'น้ำ',
@@ -64,32 +64,36 @@
             'krungthep': 'กรุงเทพมหานคร'
         };
 
-        editor.addEventListener('keydown', function(e) {
-            if (e.key === ' ') {
-                e.preventDefault(); // Chặn khoảng trắng mặc định để gom từ
-                
-                const cursorPos = editor.selectionStart;
-                const textBeforeCursor = editor.value.substring(0, cursorPos);
-                const textAfterCursor = editor.value.substring(cursorPos);
-                
-                // Tách lấy từ hiện tại đang gõ trước con trỏ
-                const words = textBeforeCursor.split(/\s+/);
-                const currentWord = words[words.length - 1];
+        editor.addEventListener('keyup', function(e) {
+            // Kiểm tra khi người dùng vừa nhả phím Cách (Space)
+            if (e.code === 'Space' || e.key === ' ') {
+                let content = editor.value;
+                let cursorPos = editor.selectionStart;
 
+                // Cắt chuỗi từ đầu đến vị trí con trỏ
+                let textBefore = content.substring(0, cursorPos);
+                let textAfter = content.substring(cursorPos);
+
+                // Tách các từ dựa trên khoảng trắng
+                // Loại bỏ khoảng trắng thừa ở cuối cụm vừa gõ để lấy từ gốc (vd: "kzin ")
+                let trimmedBefore = textBefore.trimEnd();
+                let lastSpaceIndex = trimmedBefore.lastIndexOf(' ');
+                
+                let currentWord = lastSpaceIndex === -1 ? trimmedBefore : trimmedBefore.substring(lastSpaceIndex + 1);
+
+                // Nếu từ vừa gõ khớp với từ điển tổ hợp
                 if (currentWord && syllableDictionary[currentWord]) {
-                    // Thay thế từ vừa gõ bằng chữ đích
-                    words[words.length - 1] = syllableDictionary[currentWord];
-                    const newTextBefore = words.join(' ') + ' ';
-                    editor.value = newTextBefore + textAfterCursor;
+                    let translatedWord = syllableDictionary[currentWord];
                     
-                    // Đặt lại vị trí con trỏ sau từ vừa thay thế
-                    const newCursorPos = newTextBefore.length;
-                    editor.setSelectionRange(newCursorPos, newCursorPos);
-                } else {
-                    // Nếu không khớp từ điển, chèn khoảng trắng bình thường
-                    editor.value = textBeforeCursor + ' ' + textAfterCursor;
-                    const newCursorPos = cursorPos + 1;
-                    editor.setSelectionRange(newCursorPos, newCursorPos);
+                    // Thay thế từ gốc bằng từ đã dịch
+                    let baseText = lastSpaceIndex === -1 ? '' : trimmedBefore.substring(0, lastSpaceIndex + 1);
+                    let newTextBefore = baseText + translatedWord + ' ';
+                    
+                    editor.value = newTextBefore + textAfter;
+                    
+                    // Đặt lại con trỏ đúng sau khoảng trắng của từ mới thay thế
+                    let newPos = newTextBefore.length;
+                    editor.setSelectionRange(newPos, newPos);
                 }
 
                 charCount.innerText = `${editor.value.length} ký tự`;
