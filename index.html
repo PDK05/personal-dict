@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Syllable IME - SinicIME</title>
+    <title>SinicIME - Single Box Engine</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -17,55 +17,46 @@
         body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
         header { background: var(--panel-bg); border-bottom: 1px solid var(--border-color); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
         h1 { font-size: 1.1rem; font-weight: 600; color: var(--accent); }
-        .main-container { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-color); }
-        @media (max-width: 768px) { .main-container { grid-template-columns: 1fr; } }
-        .pane { background: var(--panel-bg); display: flex; flex-direction: column; padding: 20px; }
-        .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        textarea { flex: 1; width: 100%; background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.2rem; line-height: 1.6; resize: none; outline: none; min-height: 200px; }
+        .container { flex: 1; padding: 20px; display: flex; flex-direction: column; max-width: 800px; margin: 0 auto; width: 100%; }
+        .pane-header { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        textarea { flex: 1; width: 100%; background: var(--panel-bg); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 1.3rem; line-height: 1.6; resize: none; outline: none; min-height: 300px; }
         textarea:focus { border-color: var(--accent); }
-        .hints { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px; }
+        .hints { margin-top: 10px; font-size: 0.85rem; color: var(--text-muted); background: var(--panel-bg); border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; }
         footer { background: var(--panel-bg); border-top: 1px solid var(--border-color); padding: 10px 20px; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
 
     <header>
-        <h1>⌨️ Syllable-based IME (Gõ tổ hợp + Phím Cách)</h1>
+        <h1>⌨️ SinicIME Single-Box Studio</h1>
         <div>
-            <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px;">
+            <select id="langMode" style="background: var(--bg-color); color: var(--text-main); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; outline: none;">
                 <option value="thai_syllable">Tiếng Thái (Gõ kzin + Space $\rightarrow$ กิน)</option>
             </select>
         </div>
     </header>
 
-    <div class="main-container">
-        <div class="pane">
-            <div class="pane-header">
-                <span>Vùng gõ tổ hợp (Buffer Input)</span>
-                <span id="charCount">0 ký tự</span>
-            </div>
-            <textarea id="inputBox" placeholder="Gõ kzin rồi ấn phím Cách (Space)..."></textarea>
-            <div id="hintBox" class="hints">Quy tắc: Gõ kzin -> Ấn phím Space để hệ thống phân giải thành กิน</div>
+    <div class="container">
+        <div class="pane-header">
+            <span>Văn bản trực tiếp (Single Input/Output Box)</span>
+            <span id="charCount">0 ký tự</span>
         </div>
-        <div class="pane">
-            <div class="pane-header">
-                <span>Văn bản hoàn chỉnh (Output)</span>
-            </div>
-            <textarea id="outputBox" placeholder="Chữ đích sau khi phân giải sẽ hiện ở đây..." readonly></textarea>
+        <textarea id="editorBox" placeholder="Gõ kzin rồi ấn phím Cách (Space) để phân giải ngay tại đây..."></textarea>
+        <div class="hints">
+            💡 <strong>Quy tắc:</strong> Gõ tổ hợp phím (vd: <code>kzin</code>) rồi bấm phím <code>Space</code> để hệ thống tự động thay thế thành chữ đích ngay trong khung.
         </div>
     </div>
 
     <footer>
-        <span>Trạng thái: Space-triggered Resolver Active</span>
-        <span>SinicIME Engine</span>
+        <span>Trạng thái: Active</span>
+        <span>SinicIME Mobile</span>
     </footer>
 
     <script>
-        const input = document.getElementById('inputBox');
-        const output = document.getElementById('outputBox');
+        const editor = document.getElementById('editorBox');
         const charCount = document.getElementById('charCount');
 
-        // Từ điển ánh xạ tổ hợp phím (Syllable Mapping)
+        // Bảng ánh xạ tổ hợp phím
         const syllableDictionary = {
             'kzin': 'กิน',
             'nam': 'น้ำ',
@@ -73,35 +64,40 @@
             'krungthep': 'กรุงเทพมหานคร'
         };
 
-        // Lắng nghe sự kiện nhấn phím để bắt phím Cách (Space)
-        input.addEventListener('keydown', function(e) {
+        editor.addEventListener('keydown', function(e) {
             if (e.key === ' ') {
-                e.preventDefault(); // Chặn khoảng trắng mặc định để xử lý phân giải cụm từ hiện tại
+                e.preventDefault(); // Chặn khoảng trắng mặc định để gom từ
                 
-                let text = input.value;
-                // Lấy từ/cụm chữ cuối cùng đang gõ (tính từ khoảng trắng trước đó hoặc đầu dòng)
-                let words = text.split(/\s+/);
-                let currentWord = words[words.length - 1];
+                const cursorPos = editor.selectionStart;
+                const textBeforeCursor = editor.value.substring(0, cursorPos);
+                const textAfterCursor = editor.value.substring(cursorPos);
+                
+                // Tách lấy từ hiện tại đang gõ trước con trỏ
+                const words = textBeforeCursor.split(/\s+/);
+                const currentWord = words[words.length - 1];
 
                 if (currentWord && syllableDictionary[currentWord]) {
-                    // Thay thế tổ hợp phím bằng chữ đích từ từ điển
+                    // Thay thế từ vừa gõ bằng chữ đích
                     words[words.length - 1] = syllableDictionary[currentWord];
-                    input.value = words.join(' ') + ' ';
+                    const newTextBefore = words.join(' ') + ' ';
+                    editor.value = newTextBefore + textAfterCursor;
+                    
+                    // Đặt lại vị trí con trỏ sau từ vừa thay thế
+                    const newCursorPos = newTextBefore.length;
+                    editor.setSelectionRange(newCursorPos, newCursorPos);
                 } else {
-                    // Nếu không khớp từ điển, giữ nguyên và thêm khoảng trắng
-                    input.value += ' ';
+                    // Nếu không khớp từ điển, chèn khoảng trắng bình thường
+                    editor.value = textBeforeCursor + ' ' + textAfterCursor;
+                    const newCursorPos = cursorPos + 1;
+                    editor.setSelectionRange(newCursorPos, newCursorPos);
                 }
-                
-                // Cập nhật khung kết quả bên phải
-                output.value = input.value;
-                charCount.innerText = `${input.value.length} ký tự`;
+
+                charCount.innerText = `${editor.value.length} ký tự`;
             }
         });
 
-        input.addEventListener('input', function() {
-            charCount.innerText = `${input.value.length} ký tự`;
-            // Đồng thời hiển thị nội dung thô nếu chưa ấn space
-            output.value = input.value;
+        editor.addEventListener('input', function() {
+            charCount.innerText = `${editor.value.length} ký tự`;
         });
     </script>
 </body>
